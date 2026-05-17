@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/google/adk-python/refs/heads/main/src/google/adk/agents/config_schemas/AgentConfig.json
+agent_class: LlmAgent
+name: final_writer
+description: Produces the final answer.
+model: gemini-flash-latest
+instruction: Write a clear final answer using {web_findings}, {docs_findings}, and
+  {critique}. Do not add unsupported facts.

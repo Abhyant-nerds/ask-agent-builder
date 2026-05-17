@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/google/adk-python/refs/heads/main/src/google/adk/agents/config_schemas/AgentConfig.json
+agent_class: LlmAgent
+name: web_researcher
+description: Searches public web sources.
+model: gemini-flash-latest
+instruction: 'Use web search for fresh public information. Keep findings concise and
+  cite what matters.
+
+
+  Research the user''s topic on the public web. Save a short, source-grounded summary.'
+tools:
+- name: google_search
+output_key: web_findings
