@@ -12,6 +12,11 @@ from typing import Annotated
 
 import typer
 
+from ask_agent_builder.agents import (
+    describe_generated_agent,
+    run_generated_agent,
+    smoke_load_generated_agent,
+)
 from ask_agent_builder.exceptions import AgentBuilderError
 from ask_agent_builder.loader import load_project_config
 from ask_agent_builder.runtime import build_project_from_file
@@ -130,6 +135,44 @@ def run(
         raise typer.Exit(1) from exc
     except subprocess.CalledProcessError as exc:
         raise typer.Exit(exc.returncode) from exc
+
+
+@app.command("load-agent")
+def load_agent(
+    agent_path: Annotated[
+        Path,
+        typer.Argument(help="Generated agent folder or root_agent.yaml path."),
+    ],
+    debug: Annotated[bool, typer.Option("--debug", help="Show tracebacks for failures.")] = False,
+) -> None:
+    """Create an actual ADK agent instance from Agents/<name>/root_agent.yaml."""
+
+    try:
+        result = smoke_load_generated_agent(agent_path)
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _handle_error(exc, debug=debug)
+
+    typer.echo(describe_generated_agent(result))
+
+
+@app.command("run-agent")
+def run_agent(
+    agent_path: Annotated[
+        Path,
+        typer.Argument(help="Generated agent folder or root_agent.yaml path."),
+    ],
+    debug: Annotated[bool, typer.Option("--debug", help="Show tracebacks for failures.")] = False,
+) -> None:
+    """Run an already-generated agent folder with the ADK CLI."""
+
+    try:
+        run_generated_agent(agent_path)
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _handle_error(exc, debug=debug)
 
 
 @app.command()

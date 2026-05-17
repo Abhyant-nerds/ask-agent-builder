@@ -62,6 +62,8 @@ ask-agent-builder validate examples/research_team/project.yaml --strict-imports
 ask-agent-builder build examples/research_team/project.yaml
 ask-agent-builder inspect examples/research_team/project.yaml
 ask-agent-builder run examples/research_team/project.yaml
+ask-agent-builder load-agent Agents/research_pipeline
+ask-agent-builder run-agent Agents/research_pipeline
 ask-agent-builder doctor
 ```
 
@@ -150,6 +152,42 @@ Builds the ADK config and then runs it with the ADK CLI. Use this for local
 manual testing after validation passes. For the example config, this runs the
 generated `Agents/research_pipeline` ADK app.
 
+### `load-agent`
+
+```bash
+ask-agent-builder load-agent Agents/research_pipeline
+```
+
+Loads `Agents/research_pipeline/root_agent.yaml` through ADK's Agent Config
+loader and creates the actual in-memory ADK root agent instance. Use this after
+`build` when you want to verify that the generated files can construct the real
+agent object.
+
+You can also pass the root YAML file directly:
+
+```bash
+ask-agent-builder load-agent Agents/research_pipeline/root_agent.yaml
+```
+
+Example output:
+
+```text
+loaded: research_pipeline
+type: SequentialAgent
+sub_agents: 3
+root_agent: Agents/research_pipeline/root_agent.yaml
+```
+
+### `run-agent`
+
+```bash
+ask-agent-builder run-agent Agents/research_pipeline
+```
+
+Runs an already-generated agent folder with the ADK CLI. Use this when you want
+to execute the current `Agents/<name>` folder without rebuilding from the source
+YAML.
+
 ### `doctor`
 
 ```bash
@@ -170,6 +208,30 @@ root_agent = build_and_load_agent("examples/research_team/project.yaml")
 
 Validation and build commands do not import ADK at runtime. ADK is imported
 lazily only when loading or running an actual agent.
+
+Generated agents can also be loaded directly from the `Agents` folder:
+
+```python
+from ask_agent_builder.agents import load_generated_agent
+
+root_agent = load_generated_agent("Agents/research_pipeline")
+```
+
+## Generated-Agent Pipeline
+
+The project keeps generation and loading as separate stages:
+
+```text
+examples/research_team/project.yaml
+  -> ask-agent-builder build
+  -> Agents/research_pipeline/root_agent.yaml
+  -> ask-agent-builder load-agent Agents/research_pipeline
+  -> actual Google ADK root agent instance
+```
+
+Use `build` to create the YAML files. Use `load-agent` to create the in-memory
+ADK agent instance from those files. Use `run-agent` to execute an existing
+generated agent folder without rebuilding.
 
 ## Production Safety
 

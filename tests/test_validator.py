@@ -6,7 +6,7 @@ import pytest
 
 from ask_agent_builder.exceptions import ConfigValidationError
 from ask_agent_builder.loader import load_project_config
-from ask_agent_builder.models import AgentType
+from ask_agent_builder.models import AgentType, CodeRefConfig
 from ask_agent_builder.validator import collect_validation_issues, validate_project_config
 
 
@@ -160,3 +160,61 @@ def test_strict_imports_reject_missing_custom_tool(example_config_path: Path) ->
 
     assert any(issue.code == "CUSTOM_TOOL_IMPORT_FAILED" for issue in report.issues)
 
+
+def test_strict_imports_without_allowlist_reject_missing_custom_tool(example_config_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    project.security.allowed_tool_import_prefixes = []
+
+    report = collect_validation_issues(
+        project,
+        example_config_path.parent,
+        strict_imports=True,
+    )
+
+    assert any(issue.code == "CUSTOM_TOOL_IMPORT_FAILED" for issue in report.issues)
+
+
+def test_rejects_callback_prefix_not_allowlisted(example_config_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    project.security.allowed_callback_import_prefixes = ["allowed_callbacks"]
+    project.agents["critic"].before_agent_callbacks = [CodeRefConfig(name="callbacks.audit")]
+
+    report = collect_validation_issues(project, example_config_path.parent)
+
+    assert any(issue.code == "CALLBACK_PREFIX_DENIED" for issue in report.issues)
+
+
+def test_strict_imports_reject_missing_callback(example_config_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    project.agents["critic"].before_agent_callbacks = [CodeRefConfig(name="callbacks.audit")]
+
+    report = collect_validation_issues(
+        project,
+        example_config_path.parent,
+        strict_imports=True,
+    )
+
+    assert any(issue.code == "CALLBACK_IMPORT_FAILED" for issue in report.issues)
+
+
+def test_strict_imports_reject_missing_schema(example_config_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    project.agents["critic"].input_schema = CodeRefConfig(name="schemas.Input")
+
+    report = collect_validation_issues(
+        project,
+        example_config_path.parent,
+        strict_imports=True,
+    )
+
+    assert any(issue.code == "INPUT_SCHEMA_IMPORT_FAILED" for issue in report.issues)
+
+
+def test_loop_with_exit_loop_tool_is_valid(example_config_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    project.agents["root"].type = AgentType.LOOP
+    project.agents["critic"].tools = ["exit_loop"]
+
+    report = collect_validation_issues(project, example_config_path.parent)
+
+    assert not any(issue.code == "LOOP_EXIT_MISSING" for issue in report.issues)

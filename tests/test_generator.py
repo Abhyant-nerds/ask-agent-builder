@@ -8,6 +8,7 @@ import yaml
 from ask_agent_builder.exceptions import BuildError, ConfigValidationError
 from ask_agent_builder.generator import build_adk_project
 from ask_agent_builder.loader import load_project_config
+from ask_agent_builder.models import AgentType, CodeRefConfig, ToolConfig
 
 
 def test_builds_adk_yaml_from_example(example_config_path: Path, tmp_path: Path) -> None:
@@ -91,3 +92,62 @@ def test_build_rejects_output_path_that_is_file(
 
     with pytest.raises(BuildError):
         build_adk_project(project, output_dir=output_file, base_dir=example_config_path.parent)
+
+
+def test_build_emits_loop_agent_max_iterations(example_config_path: Path, tmp_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    project.agents["root"].type = AgentType.LOOP
+    project.agents["root"].max_iterations = 3
+
+    result = build_adk_project(project, output_dir=tmp_path, base_dir=example_config_path.parent)
+    root = yaml.safe_load(result.root_config_path.read_text(encoding="utf-8"))
+
+    assert root["agent_class"] == "LoopAgent"
+    assert root["max_iterations"] == 3
+
+
+def test_build_emits_optional_llm_fields(example_config_path: Path, tmp_path: Path) -> None:
+    project = load_project_config(example_config_path)
+    agent = project.agents["critic"]
+    agent.include_contents = "none"
+    agent.input_schema = CodeRefConfig(name="schemas.Input", args={"kind": "test"})
+    agent.output_schema = CodeRefConfig(name="schemas.Output")
+    agent.generate_content_config = {"temperature": 0.1}
+    agent.disallow_transfer_to_parent = True
+    agent.disallow_transfer_to_peers = False
+    agent.before_agent_callbacks = [CodeRefConfig(name="callbacks.before", args={"sink": "stdout"})]
+    agent.tools = [
+        ToolConfig(name="tools.with_args", args={"index": "docs"}),
+        ToolConfig(name="tools.with_args"),
+    ]
+
+    result = build_adk_project(project, output_dir=tmp_path, base_dir=example_config_path.parent)
+    critic = yaml.safe_load((result.output_dir / "critic.yaml").read_text(encoding="utf-8"))
+
+    assert critic["include_contents"] == "none"
+    assert critic["input_schema"]["args"] == [{"name": "kind", "value": "test"}]
+    assert critic["generate_content_config"] == {"temperature": 0.1}
+    assert critic["disallow_transfer_to_parent"] is True
+    assert critic["disallow_transfer_to_peers"] is False
+    assert critic["before_agent_callbacks"][0]["args"] == [{"name": "sink", "value": "stdout"}]
+    assert critic["tools"] == [{"name": "tools.with_args", "args": {"index": "docs"}}]
+
+
+def test_build_wraps_prompt_read_failure(
+    example_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = load_project_config(example_config_path)
+
+    original_read_text = Path.read_text
+
+    def patched_read_text(self: Path, encoding: str = "utf-8") -> str:
+        if self.name == "critic.md":
+            raise OSError("cannot read")
+        return original_read_text(self, encoding=encoding)
+
+    monkeypatch.setattr(Path, "read_text", patched_read_text)
+
+    with pytest.raises(BuildError, match="failed to read referenced file"):
+        build_adk_project(project, output_dir=tmp_path, base_dir=example_config_path.parent)

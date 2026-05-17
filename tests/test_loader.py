@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from ask_agent_builder.exceptions import ConfigLoadError, ConfigSchemaError
 from ask_agent_builder.loader import load_project_config, load_yaml
@@ -44,3 +45,28 @@ def test_load_project_config_rejects_schema_errors(tmp_path: Path) -> None:
     with pytest.raises(ConfigSchemaError, match="agents"):
         load_project_config(path)
 
+
+def test_load_yaml_rejects_directory(tmp_path: Path) -> None:
+    with pytest.raises(ConfigLoadError, match="directory"):
+        load_yaml(tmp_path)
+
+
+def test_load_yaml_wraps_unicode_decode_error(tmp_path: Path) -> None:
+    path = tmp_path / "bad.yaml"
+    path.write_bytes(b"\xff\xfe\x00")
+
+    with pytest.raises(ConfigLoadError, match="UTF-8"):
+        load_yaml(path)
+
+
+def test_load_yaml_wraps_yaml_parse_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    path = tmp_path / "project.yaml"
+    path.write_text("app: {}", encoding="utf-8")
+
+    def fail_safe_load(raw: str):
+        raise yaml.YAMLError("bad yaml")
+
+    monkeypatch.setattr("ask_agent_builder.loader.yaml.safe_load", fail_safe_load)
+
+    with pytest.raises(ConfigLoadError, match="invalid YAML"):
+        load_yaml(path)
