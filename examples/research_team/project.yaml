@@ -1,0 +1,70 @@
+app:
+  name: research_team
+  root_agent: root
+  default_model: gemini-flash-latest
+  environment: dev
+
+runtime:
+  generated_dir: Agents
+  strict: true
+
+security:
+  allow_custom_tools: true
+  allowed_tool_import_prefixes:
+    - tools
+
+skills:
+  web_research:
+    description: Research public sources and return compact findings.
+    instruction_file: prompts/skills/web_research.md
+    tools:
+      - google_search
+
+agents:
+  root:
+    type: sequential
+    name: research_pipeline
+    description: Runs research, critique, and final synthesis in order.
+    sub_agents:
+      - parallel_research
+      - critic
+      - final_writer
+
+  parallel_research:
+    type: parallel
+    name: parallel_research
+    description: Runs independent research branches concurrently.
+    sub_agents:
+      - web_researcher
+      - docs_researcher
+
+  web_researcher:
+    type: llm
+    name: web_researcher
+    description: Searches public web sources.
+    instruction_file: prompts/web_researcher.md
+    output_key: web_findings
+    skills:
+      - web_research
+
+  docs_researcher:
+    type: llm
+    name: docs_researcher
+    description: Searches internal documentation.
+    instruction_file: prompts/docs_researcher.md
+    output_key: docs_findings
+    tools:
+      - name: tools.internal_doc_search
+
+  critic:
+    type: llm
+    name: critic
+    description: Reviews research quality and identifies gaps.
+    instruction_file: prompts/critic.md
+    output_key: critique
+
+  final_writer:
+    type: llm
+    name: final_writer
+    description: Produces the final answer.
+    instruction_file: prompts/final_writer.md

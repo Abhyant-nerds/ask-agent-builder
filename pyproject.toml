@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ask-agent-builder"
+version = "0.1.0"
+description = "Configuration-driven Google ADK agent builder from YAML."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "google-adk>=1.11.0",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.2",
+  "PyYAML>=6.0",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+ask-agent-builder = "ask_agent_builder.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
